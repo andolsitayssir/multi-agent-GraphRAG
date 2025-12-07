@@ -1,6 +1,7 @@
 import os
 from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -66,13 +67,13 @@ class GraphRAG:
         with self.driver.session() as session:
             for q in queries:
                 session.run(q)
-        print("✅ Vector indices created for Books, Authors, and Genres.")
+        
 
     def populate_embeddings(self):
         """
         Generates embeddings for Books, Authors, and Genres.
         """
-        print("🔄 Populating embeddings...")
+        print(" Populating embeddings...")
         
         with self.driver.session() as session:
             # 1. Embed Books with Rich Context
@@ -128,79 +129,79 @@ class GraphRAG:
                     id=record["id"], embedding=embedding
                 )
                 
-    def hybrid_search(self, user_query, limit=3):
+    def hybrid_search(self, user_query, limit=10, threshold=0.7):
  
         query_vector = self.get_embedding(user_query)
         
-        with self.driver.session() as session:
-            # Search 1: Direct Book Match
-            book_results = session.run("""
-                CALL db.index.vector.queryNodes('book_index', $limit, $embedding)
-                YIELD node, score
-                MATCH (node)<-[:WROTE]-(a:Author)
-                MATCH (node)-[:BELONGS_TO]->(g:Genre)
-                RETURN node.title as title, toString(node.year) as year, node.pages as pages, a.name as author, g.name as genre, score, "Book Match" as source
-            """, limit=limit, embedding=query_vector)
-            
-            # Search 2: Author Match
-            author_results = session.run("""
-                CALL db.index.vector.queryNodes('author_index', $limit, $embedding)
-                YIELD node, score
-                MATCH (node)-[:WROTE]->(b:Book)
-                MATCH (b)-[:BELONGS_TO]->(g:Genre)
-                RETURN b.title as title, toString(b.year) as year, b.pages as pages, node.name as author, g.name as genre, score, "Author Match" as source
-                LIMIT $limit
-            """, limit=limit, embedding=query_vector)
+        # Define search functions for parallel execution
+        def search_books():
+            with self.driver.session() as session:
+                return list(session.run("""
+                   CALL db.index.vector.queryNodes('book_index', 20, $embedding)
+                   YIELD node, score
+                   MATCH (node)<-[:WROTE]-(a:Author)
+                   MATCH (node)-[:BELONGS_TO]->(g:Genre)
+                   RETURN node.title AS title, toString(node.year) AS year, node.pages AS pages, a.name AS author, g.name AS genre, score, "Book Match" AS source
+                   ORDER BY score DESC      
+                  """,  embedding=query_vector))
 
-            # Search 3: Genre Match
-            genre_results = session.run("""
-                CALL db.index.vector.queryNodes('genre_index', $limit, $embedding)
-                YIELD node, score
-                MATCH (node)<-[:BELONGS_TO]-(b:Book)
-                MATCH (b)<-[:WROTE]-(a:Author)
-                RETURN b.title as title, toString(b.year) as year, b.pages as pages, a.name as author, node.name as genre, score, "Genre Match" as source
-                LIMIT $limit
-            """, limit=limit, embedding=query_vector)
+        def search_authors():
+            with self.driver.session() as session:
+                return list(session.run("""
+                   CALL db.index.vector.queryNodes('author_index', 20, $embedding)
+                   YIELD node, score
+                   MATCH (node)-[:WROTE]->(b:Book)
+                   MATCH (b)-[:BELONGS_TO]->(g:Genre)
+                   RETURN b.title AS title, toString(b.year) AS year, b.pages AS pages, node.name AS author, g.name AS genre, score, "Author Match" AS source
+                   ORDER BY score DESC
+                """,  embedding=query_vector))
 
-            
-            
-            # Combine and format
-            final_results = []
-            for r in list(book_results) + list(author_results) + list(genre_results):
-                final_results.append({
-                    "book": r["title"],
-                    "pages": r["pages"],
-                    "author": r["author"],
-                    "year": r["year"],
-                    "genre": r["genre"],
-                    "score": r["score"],
-                    "reason": r["source"]
-                })
-                
-            # Sort by score descending
-            final_results.sort(key=lambda x: x["score"], reverse=True)
-            
-            # Deduplicate by book title
-            seen = set()
-            unique_results = []
-            for r in final_results:
-                if r["book"] not in seen:
-                    unique_results.append(r)
-                    seen.add(r["book"])
-            
-            return unique_results[:limit]
+        def search_genres():
+            with self.driver.session() as session:
+                return list(session.run("""
+                    CALL db.index.vector.queryNodes('genre_index', 20, $embedding)
+                    YIELD node, score
+                    MATCH (node)<-[:BELONGS_TO]-(b:Book)
+                    MATCH (b)<-[:WROTE]-(a:Author)
+                    RETURN b.title AS title, toString(b.year) AS year, b.pages AS pages, a.name AS author, node.name AS genre, score, "Genre Match" AS source
+                    ORDER BY score DESC            
+                """,  embedding=query_vector))
 
-# Execution block
-if __name__ == "__main__":
-    rag = GraphRAG()
-    
-    # Setup
-    rag.setup_indices()
-    rag.populate_embeddings()
-    
+        # Execute in parallel
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_books = executor.submit(search_books)
+            future_authors = executor.submit(search_authors)
+            future_genres = executor.submit(search_genres)
 
-    
-    print("\n Testing Search for 350 pages':")
-    print(rag.hybrid_search("350 pages"))
-    
-    rag.close()
+            book_results = future_books.result()
+            author_results = future_authors.result()
+            genre_results = future_genres.result()
+
+        
+        
+        # Combine and format
+        final_results = []
+        for r in list(book_results) + list(author_results) + list(genre_results):
+            final_results.append({
+                "book": r["title"],
+                "pages": r["pages"],
+                "author": r["author"],
+                "year": r["year"],
+                "genre": r["genre"],
+                "score": r["score"],
+                "reason": r["source"]
+            })
+            
+        # Sort by score descending
+        final_results.sort(key=lambda x: x["score"], reverse=True)
+
+        # duplicate removal based on book title
+        seen = set()
+        unique_results = []
+        for r in final_results:
+            if r["book"] not in seen and r["score"] >= threshold:
+                unique_results.append(r)
+                seen.add(r["book"])
+        
+        return unique_results[:limit]
+

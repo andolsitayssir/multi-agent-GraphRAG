@@ -1,2 +1,3 @@
 /venv
 .env
+/front/frontend/node_modules

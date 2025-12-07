@@ -1,8 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app.agent import ask_agent, rag
+from agent import ask_agent, rag
 import uvicorn
+import os
+   
+
+from graph import GraphRAG
 
 app = FastAPI(
     title="GraphRAG Agent API",
@@ -55,4 +59,4 @@ def graph_info():
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8002)
