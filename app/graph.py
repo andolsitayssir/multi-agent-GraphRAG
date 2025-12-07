@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 
+
 # Load environment variables
 load_dotenv()
 
@@ -23,6 +24,7 @@ class GraphRAG:
         print("Loading embedding model...")
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
         self.setup_indices()
+       
 
     def close(self):
         self.driver.close()
@@ -138,7 +140,7 @@ class GraphRAG:
         def search_books():
             with self.driver.session() as session:
                 return list(session.run("""
-                   CALL db.index.vector.queryNodes('book_index', 20, $embedding)
+                   CALL db.index.vector.queryNodes('book_index', 10, $embedding)
                    YIELD node, score
                    MATCH (node)<-[:WROTE]-(a:Author)
                    MATCH (node)-[:BELONGS_TO]->(g:Genre)
@@ -149,7 +151,7 @@ class GraphRAG:
         def search_authors():
             with self.driver.session() as session:
                 return list(session.run("""
-                   CALL db.index.vector.queryNodes('author_index', 20, $embedding)
+                   CALL db.index.vector.queryNodes('author_index', 10, $embedding)
                    YIELD node, score
                    MATCH (node)-[:WROTE]->(b:Book)
                    MATCH (b)-[:BELONGS_TO]->(g:Genre)
@@ -160,7 +162,7 @@ class GraphRAG:
         def search_genres():
             with self.driver.session() as session:
                 return list(session.run("""
-                    CALL db.index.vector.queryNodes('genre_index', 20, $embedding)
+                    CALL db.index.vector.queryNodes('genre_index', 10, $embedding)
                     YIELD node, score
                     MATCH (node)<-[:BELONGS_TO]-(b:Book)
                     MATCH (b)<-[:WROTE]-(a:Author)
