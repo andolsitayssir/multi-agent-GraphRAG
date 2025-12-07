@@ -22,6 +22,7 @@ class GraphRAG:
         self.driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         print("Loading embedding model...")
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.setup_indices()
 
     def close(self):
         self.driver.close()

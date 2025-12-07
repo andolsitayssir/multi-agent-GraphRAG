@@ -4,7 +4,7 @@ import os
 
 # Ensure we can import from the current directory
 sys.path.append(".")
-from app.agent import ask_agent
+from agent import ask_agent
 
 # Define Test Scenarios
 scenarios = [
@@ -79,16 +79,6 @@ def run_evaluation():
         })
 
     # Summary
-  
-    print("="*30)
-    total = len(results)
-    passed_count = sum(1 for r in results if r['passed'])
-    avg_latency = sum(r['latency'] for r in results) / total
-    
-    print(f"Total Tests: {total}")
-    print(f"Passed: {passed_count}/{total} ({passed_count/total*100:.1f}%)")
-    print(f"Average Latency: {avg_latency:.4f}s")
-    print(f"Average Accuracy: {sum(r['accuracy'] for r in results) / total:.2f}")
-
 if __name__ == "__main__":
     run_evaluation()
+
