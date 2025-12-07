@@ -9,6 +9,8 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import create_react_agent
 import logging
+import time
+from functools import wraps
 
 # Configure logging with colors
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -95,11 +97,17 @@ def get_book_stats(genre: str = None, author: str = None, year: str = None, page
         
         return f"Found {count} books matching the criteria (Author: {author}, Genre: {genre}, Year: {year}, Pages: {pages})."
 
-# Using the requested model
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile", 
-    temperature=0.2
-)
+# Using the requested model with retry logic
+def create_llm_with_retry():
+    """Create LLM with automatic retry on rate limits"""
+    return ChatGroq(
+        model="llama-3.3-70b-versatile", 
+        temperature=0.2,
+        max_retries=3,  # Retry up to 3 times
+        timeout=60.0    # 60 second timeout
+    )
+
+llm = create_llm_with_retry()
 
 tools = [search_books, get_book_stats]
 

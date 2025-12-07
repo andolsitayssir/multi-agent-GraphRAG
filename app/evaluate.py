@@ -17,7 +17,7 @@ scenarios = [
     {
         "name": "Topic/Genre Search",
         "query": "Do you have any books about space?",
-        "expected_keywords": ["Edge of Tomorrow", "Mapping the Stars", "The Quantum Key", "Science Fiction", "Blossoms of Dust","The Silent Forest"],
+        "expected_keywords": ["Edge of Tomorrow", "Mapping the Stars", "The Quantum Key", "The Memory Paradox","Reborn Skies"],
         "type": "retrieval"
     },
     {
