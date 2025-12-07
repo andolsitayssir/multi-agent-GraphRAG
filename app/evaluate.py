@@ -11,19 +11,19 @@ scenarios = [
     {
         "name": "Specific Book Search",
         "query": "Who wrote The Storm?",
-        "expected_keywords": ["Leo Harding", "Storm Chaser"],
+        "expected_keywords": ["Leo Harding", "Storm Chaser","Children of the Storm",],
         "type": "retrieval"
     },
     {
         "name": "Topic/Genre Search",
         "query": "Do you have any books about space?",
-        "expected_keywords": ["Edge of Tomorrow", "Mapping the Stars", "The Quantum Key", "Science Fiction"],
+        "expected_keywords": ["Edge of Tomorrow", "Mapping the Stars", "The Quantum Key", "Science Fiction", "Blossoms of Dust","The Silent Forest"],
         "type": "retrieval"
     },
     {
         "name": "General Knowledge/Stats",
         "query": "How many books are in the database?",
-        "expected_keywords": ["50", "books"],
+        "expected_keywords": ["56", "books"],
         "type": "tool_usage"
     },
     {

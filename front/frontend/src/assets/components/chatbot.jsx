@@ -20,7 +20,7 @@ function Chatbot() {
         setNewMessage('');
 
         try {
-            const response = await fetch('http://localhost:8000/ask', {
+            const response = await fetch('http://localhost:8002/ask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
